@@ -116,8 +116,12 @@ fn parse_pos(range: &str) -> Result<PositionList> {
         .collect()
 }
 
-fn extract_fields(record: &StringRecord, field_pos: &[Range<usize>]) -> Vec<String> {
-    todo!()
+fn extract_fields<'a>(record: &'a StringRecord, field_pos: &[Range<usize>]) -> Vec<&'a str> {
+    field_pos
+        .iter()
+        .cloned()
+        .flat_map(|range| range.filter_map(|i| record.get(i)))
+        .collect()
 }
 
 fn extract_chars(line: &str, char_pos: &[Range<usize>]) -> String {
