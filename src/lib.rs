@@ -121,7 +121,12 @@ fn extract_fields(record: &StringRecord, field_pos: &[Range<usize>]) -> Vec<Stri
 }
 
 fn extract_chars(line: &str, char_pos: &[Range<usize>]) -> String {
-    todo!()
+    let chars: Vec<_> = line.chars().collect();
+    char_pos
+        .iter()
+        .cloned()
+        .flat_map(|range| range.filter_map(|i| chars.get(i)))
+        .collect()
 }
 
 fn extract_bytes(line: &str, byte_pos: &[Range<usize>]) -> String {
