@@ -1,6 +1,8 @@
-use anyhow::Result;
+use crate::Extract::*;
+use anyhow::{anyhow, Result};
 use clap::Parser;
-use std::ops::Range;
+use regex::Regex;
+use std::{num::NonZeroUsize, ops::Range};
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
@@ -38,8 +40,21 @@ pub struct Config {
 }
 
 pub fn get_args() -> Result<Config> {
-    let _args = Args::parse();
-    todo!()
+    let args = Args::parse();
+    let extract = if let Some(field_pos) = args.fields.as_deref().map(parse_pos).transpose()? {
+        Fields(field_pos)
+    } else if let Some(byte_pos) = args.bytes.as_deref().map(parse_pos).transpose()? {
+        Bytes(byte_pos)
+    } else if let Some(char_pos) = args.chars.as_deref().map(parse_pos).transpose()? {
+        Chars(char_pos)
+    } else {
+        Err(anyhow!("Must have --fields, --bytes, or --chars"))?
+    };
+    Ok(Config {
+        files: args.files,
+        delimiter: args.delimiter as u8,
+        extract,
+    })
 }
 
 pub fn run(config: Config) -> Result<()> {
@@ -47,8 +62,40 @@ pub fn run(config: Config) -> Result<()> {
     Ok(())
 }
 
+fn parse_index(input: &str) -> Result<usize> {
+    let value_error = || anyhow!("illegal list value: \"{input}\"");
+    input
+        .starts_with('+')
+        .then(|| Err(value_error()))
+        .unwrap_or_else(|| {
+            input
+                .parse::<NonZeroUsize>()
+                .map(|n| usize::from(n) - 1)
+                .map_err(|_| value_error())
+        })
+}
+
 fn parse_pos(range: &str) -> Result<PositionList> {
-    todo!()
+    let range_re = Regex::new(r"^(\d+)-(\d+)$").unwrap();
+    range
+        .split(',')
+        .map(|val| {
+            parse_index(val).map(|n| n..n + 1).or_else(|err| {
+                range_re.captures(val).ok_or(err).and_then(|captures| {
+                    let n1 = parse_index(&captures[1])?;
+                    let n2 = parse_index(&captures[2])?;
+                    if n1 >= n2 {
+                        Err(anyhow!(
+                            "First number in range ({}) must be lower than second number ({})",
+                            n1 + 1,
+                            n2 + 1
+                        ))?
+                    }
+                    Ok(n1..n2 + 1)
+                })
+            })
+        })
+        .collect()
 }
 
 #[cfg(test)]
