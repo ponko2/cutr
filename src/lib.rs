@@ -1,7 +1,7 @@
 use crate::Extract::*;
 use anyhow::{anyhow, Result};
 use clap::Parser;
-use csv::StringRecord;
+use csv::{ReaderBuilder, StringRecord, WriterBuilder};
 use regex::Regex;
 use std::{
     fs::File,
@@ -67,7 +67,30 @@ pub fn run(config: Config) -> Result<()> {
     for filename in &config.files {
         match open(filename) {
             Err(err) => eprintln!("{filename}: {err}"),
-            Ok(_) => println!("Opened {filename}"),
+            Ok(file) => match &config.extract {
+                Fields(field_pos) => {
+                    let mut reader = ReaderBuilder::new()
+                        .delimiter(config.delimiter)
+                        .has_headers(false)
+                        .from_reader(file);
+                    let mut writer = WriterBuilder::new()
+                        .delimiter(config.delimiter)
+                        .from_writer(io::stdout());
+                    for record in reader.records() {
+                        writer.write_record(extract_fields(&record?, field_pos))?;
+                    }
+                }
+                Bytes(byte_pos) => {
+                    for line in file.lines() {
+                        println!("{}", extract_bytes(&line?, byte_pos))
+                    }
+                }
+                Chars(char_pos) => {
+                    for line in file.lines() {
+                        println!("{}", extract_chars(&line?, char_pos))
+                    }
+                }
+            },
         }
     }
     Ok(())
