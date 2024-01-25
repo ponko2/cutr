@@ -1,6 +1,7 @@
 use crate::Extract::*;
 use anyhow::{anyhow, Result};
 use clap::Parser;
+use csv::StringRecord;
 use regex::Regex;
 use std::{
     fs::File,
@@ -115,6 +116,10 @@ fn parse_pos(range: &str) -> Result<PositionList> {
         .collect()
 }
 
+fn extract_fields(record: &StringRecord, field_pos: &[Range<usize>]) -> Vec<String> {
+    todo!()
+}
+
 fn extract_chars(line: &str, char_pos: &[Range<usize>]) -> String {
     todo!()
 }
@@ -125,7 +130,8 @@ fn extract_bytes(line: &str, byte_pos: &[Range<usize>]) -> String {
 
 #[cfg(test)]
 mod unit_tests {
-    use super::{extract_bytes, extract_chars, parse_pos};
+    use super::{extract_bytes, extract_chars, extract_fields, parse_pos};
+    use csv::StringRecord;
 
     #[test]
     fn test_parsepos() {
@@ -237,6 +243,17 @@ mod unit_tests {
         let res = parse_pos("15,19-20");
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), vec![14..15, 18..20]);
+    }
+
+    #[test]
+    #[allow(clippy::single_range_in_vec_init)]
+    fn test_extract_fields() {
+        let rec = StringRecord::from(vec!["Captain", "Sham", "12345"]);
+        assert_eq!(extract_fields(&rec, &[0..1]), &["Captain"]);
+        assert_eq!(extract_fields(&rec, &[1..2]), &["Sham"]);
+        assert_eq!(extract_fields(&rec, &[0..1, 2..3]), &["Captain", "12345"]);
+        assert_eq!(extract_fields(&rec, &[0..1, 3..4]), &["Captain"]);
+        assert_eq!(extract_fields(&rec, &[1..2, 0..1]), &["Sham", "Captain"]);
     }
 
     #[test]
