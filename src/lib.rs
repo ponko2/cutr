@@ -2,7 +2,12 @@ use crate::Extract::*;
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use regex::Regex;
-use std::{num::NonZeroUsize, ops::Range};
+use std::{
+    fs::File,
+    io::{self, BufRead, BufReader},
+    num::NonZeroUsize,
+    ops::Range,
+};
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
@@ -58,8 +63,20 @@ pub fn get_args() -> Result<Config> {
 }
 
 pub fn run(config: Config) -> Result<()> {
-    dbg!(config);
+    for filename in &config.files {
+        match open(filename) {
+            Err(err) => eprintln!("{filename}: {err}"),
+            Ok(_) => println!("Opened {filename}"),
+        }
+    }
     Ok(())
+}
+
+fn open(filename: &str) -> Result<Box<dyn BufRead>> {
+    Ok(match filename {
+        "-" => Box::new(BufReader::new(io::stdin())),
+        _ => Box::new(BufReader::new(File::open(filename)?)),
+    })
 }
 
 fn parse_index(input: &str) -> Result<usize> {
@@ -98,9 +115,17 @@ fn parse_pos(range: &str) -> Result<PositionList> {
         .collect()
 }
 
+fn extract_chars(line: &str, char_pos: &[Range<usize>]) -> String {
+    todo!()
+}
+
+fn extract_bytes(line: &str, byte_pos: &[Range<usize>]) -> String {
+    todo!()
+}
+
 #[cfg(test)]
 mod unit_tests {
-    use super::parse_pos;
+    use super::{extract_bytes, extract_chars, parse_pos};
 
     #[test]
     fn test_parsepos() {
@@ -212,5 +237,27 @@ mod unit_tests {
         let res = parse_pos("15,19-20");
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), vec![14..15, 18..20]);
+    }
+
+    #[test]
+    #[allow(clippy::single_range_in_vec_init)]
+    fn test_extract_chars() {
+        assert_eq!(extract_chars("", &[0..1]), "".to_string());
+        assert_eq!(extract_chars("ábc", &[0..1]), "á".to_string());
+        assert_eq!(extract_chars("ábc", &[0..1, 2..3]), "ác".to_string());
+        assert_eq!(extract_chars("ábc", &[0..3]), "ábc".to_string());
+        assert_eq!(extract_chars("ábc", &[2..3, 1..2]), "cb".to_string());
+        assert_eq!(extract_chars("ábc", &[0..1, 1..2, 4..5]), "áb".to_string());
+    }
+
+    #[test]
+    #[allow(clippy::single_range_in_vec_init)]
+    fn test_extract_bytes() {
+        assert_eq!(extract_bytes("ábc", &[0..1]), "�".to_string());
+        assert_eq!(extract_bytes("ábc", &[0..2]), "á".to_string());
+        assert_eq!(extract_bytes("ábc", &[0..3]), "áb".to_string());
+        assert_eq!(extract_bytes("ábc", &[0..4]), "ábc".to_string());
+        assert_eq!(extract_bytes("ábc", &[3..4, 2..3]), "cb".to_string());
+        assert_eq!(extract_bytes("ábc", &[0..2, 5..6]), "á".to_string());
     }
 }
